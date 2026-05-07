@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1e293b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="語音轉文字" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>語音轉文字 - Breeze ASR</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --accent: #38bdf8;
+      --accent2: #0ea5e9;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --danger: #f87171;
+      --success: #4ade80;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: env(safe-area-inset-top, 0) 16px env(safe-area-inset-bottom, 0);
+    }
+    header {
+      padding: 20px 0 12px;
+      text-align: center;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+    header p { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
+
+    /* Server URL 設定 */
+    #settings {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #settings label { font-size: 0.75rem; color: var(--text2); white-space: nowrap; }
+    #serverUrl {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      outline: none;
+      min-width: 0;
+    }
+    #serverUrl:focus { border-color: var(--accent); }
+    #statusDot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--text2);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #statusDot.ok { background: var(--success); }
+    #statusDot.err { background: var(--danger); }
+
+    /* 錄音按鈕區 */
+    #recordArea {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 0;
+    }
+    #recordBtn {
+      width: 96px; height: 96px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent2);
+      color: #fff;
+      font-size: 2.2rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.5);
+      transition: transform 0.1s, background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+    }
+    #recordBtn.recording {
+      background: var(--danger);
+      animation: pulse 1.5s infinite;
+    }
+    #recordBtn:active { transform: scale(0.93); }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.6); }
+      70%  { box-shadow: 0 0 0 20px rgba(248, 113, 113, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+    }
+    #timer {
+      font-size: 1.1rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text2);
+      height: 1.4em;
+    }
+    #timer.active { color: var(--danger); }
+
+    #statusMsg {
+      font-size: 0.85rem;
+      color: var(--text2);
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    /* 結果框 */
+    #resultBox {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      min-height: 80px;
+    }
+    #resultBox h2 { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    #resultText {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      word-break: break-all;
+      white-space: pre-wrap;
+      color: var(--text);
+      min-height: 2em;
+    }
+    #copyBtn {
+      margin-top: 10px;
+      background: var(--surface2);
+      border: none;
+      border-radius: 8px;
+      color: var(--text2);
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      cursor: pointer;
+      display: none;
+    }
+    #copyBtn:active { opacity: 0.7; }
+
+    /* 歷史紀錄 */
+    #historySection { flex: 1; display: flex; flex-direction: column; }
+    #historySection h2 { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    #historyList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 24px; }
+    .history-item {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .history-item .hi-text { font-size: 0.95rem; line-height: 1.5; word-break: break-all; }
+    .history-item .hi-meta { font-size: 0.72rem; color: var(--text2); display: flex; justify-content: space-between; }
+    .hi-del {
+      background: none; border: none;
+      color: var(--text2); font-size: 0.8rem;
+      cursor: pointer; align-self: flex-end;
+      padding: 2px 6px; border-radius: 6px;
+    }
+    .hi-del:hover { color: var(--danger); }
+
+    #clearBtn {
+      background: none;
+      border: 1px solid var(--surface2);
+      border-radius: 8px;
+      color: var(--text2);
+      font-size: 0.78rem;
+      padding: 5px 12px;
+      cursor: pointer;
+      align-self: flex-end;
+      margin-bottom: 8px;
+    }
+    #clearBtn:active { opacity: 0.7; }
+
+    /* loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--surface2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>語音轉文字</h1>
+    <p>Breeze-ASR-26 · 台語 / 中文</p>
+  </header>
+
+  <div id="settings">
+    <label>伺服器</label>
+    <input id="serverUrl" type="url" placeholder="http://camac-mini-1:8765" autocomplete="off" />
+    <div id="statusDot" title="連線狀態"></div>
+  </div>
+
+  <div id="recordArea">
+    <button id="recordBtn" aria-label="開始錄音">🎙️</button>
+    <div id="timer"></div>
+    <div id="statusMsg">點擊麥克風開始錄音</div>
+  </div>
+
+  <div id="resultBox">
+    <h2>轉錄結果</h2>
+    <div id="resultText"></div>
+    <button id="copyBtn">複製</button>
+  </div>
+
+  <div id="historySection">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin-bottom:0">歷史紀錄</h2>
+      <button id="clearBtn">清除全部</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+// ===== IndexedDB =====
+const DB_NAME = 'breezeASR', DB_VER = 1, STORE = 'transcriptions';
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const os = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        os.createIndex('createdAt', 'createdAt');
+      }
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbAdd(text, elapsed) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).add({ text, elapsed, createdAt: Date.now() });
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbGetAll() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).index('createdAt').getAll();
+    req.onsuccess = e => res(e.target.result.reverse());
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbDelete(id) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+
+async function dbClear() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+
+// ===== UI refs =====
+const serverUrlEl = document.getElementById('serverUrl');
+const statusDot = document.getElementById('statusDot');
+const recordBtn = document.getElementById('recordBtn');
+const timerEl = document.getElementById('timer');
+const statusMsg = document.getElementById('statusMsg');
+const resultText = document.getElementById('resultText');
+const copyBtn = document.getElementById('copyBtn');
+const historyList = document.getElementById('historyList');
+const clearBtn = document.getElementById('clearBtn');
+
+// ===== Settings =====
+const STORAGE_KEY = 'breezeASR_serverUrl';
+serverUrlEl.value = localStorage.getItem(STORAGE_KEY) || 'http://camac-mini-1:8765';
+
+serverUrlEl.addEventListener('change', () => {
+  localStorage.setItem(STORAGE_KEY, serverUrlEl.value.trim());
+  checkHealth();
+});
+
+// ===== Health check =====
+let healthTimer;
+async function checkHealth() {
+  const url = serverUrlEl.value.trim();
+  if (!url) { statusDot.className = ''; return; }
+  try {
+    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) });
+    statusDot.className = res.ok ? 'ok' : 'err';
+  } catch {
+    statusDot.className = 'err';
+  }
+}
+checkHealth();
+healthTimer = setInterval(checkHealth, 15000);
+
+// ===== Recording =====
+let mediaRecorder = null;
+let audioChunks = [];
+let timerInterval = null;
+let recordStartTime = null;
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // 優先使用 webm/opus，iOS 回退到 mp4
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : '';
+    const options = mimeType ? { mimeType } : {};
+    mediaRecorder = new MediaRecorder(stream, options);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      await sendAudio();
+    };
+
+    mediaRecorder.start(1000); // 每秒收一個 chunk
+    recordStartTime = Date.now();
+    recordBtn.className = 'recording';
+    recordBtn.textContent = '⏹️';
+    timerEl.className = 'active';
+    statusMsg.textContent = '錄音中，再按一次停止';
+
+    timerInterval = setInterval(() => {
+      timerEl.textContent = formatTime(Date.now() - recordStartTime);
+    }, 500);
+  } catch (err) {
+    statusMsg.textContent = `無法存取麥克風：${err.message}`;
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  clearInterval(timerInterval);
+  recordBtn.className = '';
+  recordBtn.textContent = '🎙️';
+  timerEl.className = '';
+  timerEl.textContent = '';
+  statusMsg.innerHTML = '<span class="spinner"></span> 上傳轉錄中…';
+}
+
+recordBtn.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+});
+
+async function sendAudio() {
+  const url = serverUrlEl.value.trim();
+  if (!url) { statusMsg.textContent = '請先設定伺服器網址'; return; }
+
+  const mimeType = audioChunks[0]?.type || 'audio/webm';
+  const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+  const blob = new Blob(audioChunks, { type: mimeType });
+
+  const form = new FormData();
+  form.append('audio', blob, `recording.${ext}`);
+  form.append('language', 'zh');
+
+  try {
+    const res = await fetch(`${url}/transcribe`, { method: 'POST', body: form });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    const data = await res.json();
+    const text = data.text || '（無法辨識）';
+    const elapsed = data.elapsed_seconds;
+
+    resultText.textContent = text;
+    copyBtn.style.display = 'inline-block';
+    statusMsg.textContent = `轉錄完成（耗時 ${elapsed}s）`;
+
+    await dbAdd(text, elapsed);
+    await renderHistory();
+  } catch (err) {
+    statusMsg.textContent = `錯誤：${err.message}`;
+    resultText.textContent = '';
+    copyBtn.style.display = 'none';
+  }
+}
+
+// ===== Copy =====
+copyBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(resultText.textContent);
+    copyBtn.textContent = '已複製！';
+    setTimeout(() => { copyBtn.textContent = '複製'; }, 1500);
+  } catch {
+    // fallback
+    const r = document.createRange();
+    r.selectNode(resultText);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand('copy');
+  }
+});
+
+// ===== History =====
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return `${s}秒前`;
+  if (s < 3600) return `${Math.floor(s/60)}分鐘前`;
+  if (s < 86400) return `${Math.floor(s/3600)}小時前`;
+  return new Date(ts).toLocaleDateString('zh-TW');
+}
+
+async function renderHistory() {
+  const items = await dbGetAll();
+  historyList.innerHTML = '';
+  if (!items.length) {
+    historyList.innerHTML = '<p style="color:var(--text2);font-size:0.85rem;text-align:center;padding:16px 0">尚無紀錄</p>';
+    return;
+  }
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `
+      <div class="hi-text">${escapeHtml(item.text)}</div>
+      <div class="hi-meta">
+        <span>${timeAgo(item.createdAt)}</span>
+        <span>${item.elapsed ? item.elapsed + 's' : ''}</span>
+      </div>
+      <button class="hi-del" data-id="${item.id}">刪除</button>
+    `;
+    historyList.appendChild(div);
+  });
+  historyList.querySelectorAll('.hi-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await dbDelete(Number(btn.dataset.id));
+      await renderHistory();
+    });
+  });
+}
+
+clearBtn.addEventListener('click', async () => {
+  if (!confirm('確定清除所有歷史紀錄？')) return;
+  await dbClear();
+  await renderHistory();
+});
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== Init =====
+renderHistory();
+
+// ===== Service Worker =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
