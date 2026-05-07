@@ -57,18 +57,7 @@
       align-items: center;
     }
     #settings label { font-size: 0.75rem; color: var(--text2); white-space: nowrap; }
-    #serverUrl {
-      flex: 1;
-      background: var(--surface2);
-      border: 1px solid transparent;
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 0.8rem;
-      padding: 6px 10px;
-      outline: none;
-      min-width: 0;
-    }
-    #serverUrl:focus { border-color: var(--accent); }
+    #serverUrl { display: none; }
     #statusDot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -209,7 +198,7 @@
 <div id="app">
   <header>
     <h1>語音轉文字</h1>
-    <p>Breeze-ASR-26 · 台語 / 中文 · <span style="opacity:0.6">v2</span></p>
+    <p>Breeze-ASR-26 · 台語 / 中文 · <span style="color:var(--accent)">v2</span></p>
   </header>
 
   <div id="settings">
