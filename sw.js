@@ -1,5 +1,5 @@
 // Service Worker - 支援離線使用 UI 介面
-const CACHE = 'breeze-asr-v1';
+const CACHE = 'breeze-asr-v2';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
